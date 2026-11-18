@@ -1,0 +1,131 @@
+<h2 mat-dialog-title>New movement</h2>
+
+<mat-dialog-content>
+  <p class="dialog-intro">
+    Create a movement at <strong>{{ site.name }}</strong>. The shift is derived from the time the
+    request is created.
+  </p>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Material type</mat-label>
+      <input
+        matInput
+        formControlName="materialType"
+        maxlength="100"
+        autocomplete="off"
+        placeholder="e.g. Steel slag">
+      @if (form.controls.materialType.hasError('required')) {
+        <mat-error>Material type is required.</mat-error>
+      } @else if (form.controls.materialType.hasError('minlength')) {
+        <mat-error>Use at least 2 characters.</mat-error>
+      } @else if (form.controls.materialType.hasError('server')) {
+        <mat-error>{{ form.controls.materialType.getError('server') }}</mat-error>
+      }
+    </mat-form-field>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Source location</mat-label>
+        <input
+          matInput
+          formControlName="sourceLocation"
+          maxlength="120"
+          autocomplete="off"
+          placeholder="e.g. Slag Pit East">
+        @if (form.controls.sourceLocation.hasError('required')) {
+          <mat-error>Source location is required.</mat-error>
+        } @else if (form.controls.sourceLocation.hasError('minlength')) {
+          <mat-error>Use at least 2 characters.</mat-error>
+        } @else if (form.controls.sourceLocation.hasError('server')) {
+          <mat-error>{{ form.controls.sourceLocation.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Destination location</mat-label>
+        <input
+          matInput
+          formControlName="destinationLocation"
+          maxlength="120"
+          autocomplete="off"
+          placeholder="e.g. Recovery Plant">
+        @if (form.controls.destinationLocation.hasError('required')) {
+          <mat-error>Destination location is required.</mat-error>
+        } @else if (form.controls.destinationLocation.hasError('minlength')) {
+          <mat-error>Use at least 2 characters.</mat-error>
+        } @else if (form.controls.destinationLocation.hasError('server')) {
+          <mat-error>{{ form.controls.destinationLocation.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    @if (showSameRouteError()) {
+      <p class="form-error" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        Source and destination must be different.
+      </p>
+    }
+
+    <div class="form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Estimated tonnes</mat-label>
+        <input
+          matInput
+          type="number"
+          formControlName="estimatedTonnes"
+          min="0"
+          max="500"
+          step="any"
+          inputmode="decimal"
+          placeholder="0.00">
+        <mat-hint>More than 0, up to 500 tonnes</mat-hint>
+        @if (form.controls.estimatedTonnes.hasError('required')) {
+          <mat-error>Estimated tonnes are required.</mat-error>
+        } @else if (form.controls.estimatedTonnes.hasError('positive')) {
+          <mat-error>Tonnes must be greater than 0.</mat-error>
+        } @else if (form.controls.estimatedTonnes.hasError('max')) {
+          <mat-error>Tonnes must be 500 or less.</mat-error>
+        } @else if (form.controls.estimatedTonnes.hasError('server')) {
+          <mat-error>{{ form.controls.estimatedTonnes.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Priority</mat-label>
+        <mat-select formControlName="priority">
+          @for (priority of priorities; track priority) {
+            <mat-option [value]="priority">{{ priority }}</mat-option>
+          }
+        </mat-select>
+        @if (form.controls.priority.hasError('server')) {
+          <mat-error>{{ form.controls.priority.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+    </div>
+
+    @if (serverMessages().length > 0) {
+      <div class="form-error-summary" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <div>
+          <strong>Review the request</strong>
+          <ul>
+            @for (message of serverMessages(); track message) {
+              <li>{{ message }}</li>
+            }
+          </ul>
+        </div>
+      </div>
+    }
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()" [disabled]="saving()">Cancel</button>
+  <button mat-flat-button type="button" (click)="submit()" [disabled]="saving() || form.invalid">
+    @if (saving()) {
+      <mat-spinner diameter="18" aria-hidden="true"></mat-spinner>
+    }
+    {{ saving() ? 'Creating…' : 'Create movement' }}
+  </button>
+</mat-dialog-actions>

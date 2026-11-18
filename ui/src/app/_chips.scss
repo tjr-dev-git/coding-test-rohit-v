@@ -1,0 +1,61 @@
+.chip-icon {
+  width: 15px;
+  height: 15px;
+  margin-right: 4px;
+  font-size: 15px;
+}
+
+.priority,
+.status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #e8eef1;
+  color: #344c58;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.priority.urgent {
+  background: #fee7cf;
+  color: #8a3f00;
+}
+
+.status[data-status="Requested"] {
+  background: #eef2f5;
+  color: #3f5561;
+}
+
+.status[data-status="Assigned"] {
+  background: #e7eefb;
+  color: #2b4e8a;
+}
+
+.status[data-status="InProgress"] {
+  background: #dceef9;
+  color: #075985;
+}
+
+.status[data-status="Completed"] {
+  background: #dcefe4;
+  color: #1f6540;
+}
+
+.status[data-status="Cancelled"] {
+  background: #f3e6e6;
+  color: #7f2020;
+  text-decoration: line-through;
+}
+
+.muted {
+  color: #74858e;
+  font-style: italic;
+}
+
+.site-time {
+  color: #74858e;
+  font-size: 11px;
+}

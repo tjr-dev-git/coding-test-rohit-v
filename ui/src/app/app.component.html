@@ -1,0 +1,314 @@
+<mat-toolbar class="topbar">
+  <div class="brand-mark" aria-hidden="true">HE</div>
+  <div>
+    <div class="product-name">Material Dispatch</div>
+    <div class="product-context">Operational exercise</div>
+  </div>
+  <span class="toolbar-spacer"></span>
+  <button
+    mat-flat-button
+    type="button"
+    (click)="openCreate()"
+    [disabled]="!selectedSite()">
+    <mat-icon aria-hidden="true">add</mat-icon>
+    New movement
+  </button>
+</mat-toolbar>
+
+<main>
+  <section class="page-heading" aria-labelledby="page-title">
+    <div>
+      <p class="eyebrow">Current shift</p>
+      <h1 id="page-title">Dispatch board</h1>
+      @if (selectedSite(); as site) {
+        <p class="subtitle">
+          {{ site.name }}
+          <span class="site-zone">· {{ site.timeZoneId }}</span>
+        </p>
+      } @else {
+        <p class="subtitle">Select a site to begin</p>
+      }
+    </div>
+
+    <div class="summary" aria-live="polite">
+      <div class="summary-metric">
+        <span class="summary-number">{{ activeCount() }}</span>
+        <span>active</span>
+      </div>
+      <div class="summary-metric">
+        <span class="summary-number">{{ urgentCount() }}</span>
+        <span>urgent</span>
+      </div>
+      <div class="summary-metric">
+        <span class="summary-number">{{ unassignedCount() }}</span>
+        <span>unassigned</span>
+      </div>
+    </div>
+  </section>
+
+  <mat-card appearance="outlined" class="filters-card">
+    <mat-card-content class="filters">
+      <mat-form-field appearance="outline">
+        <mat-label>Site</mat-label>
+        <mat-select
+          [ngModel]="siteId"
+          (ngModelChange)="onSiteChanged($event)"
+          aria-label="Site">
+          @for (site of sites(); track site.id) {
+            <mat-option [value]="site.id">{{ site.name }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>{{ selectedSite()?.timeZoneId ?? 'Site time zone' }}</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Shift date</mat-label>
+        <input matInput type="date" [(ngModel)]="shiftDate" (change)="refresh()">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Shift</mat-label>
+        <mat-select [(ngModel)]="shift" (selectionChange)="refresh()">
+          <mat-option value="Day">Day · 06:00–18:00</mat-option>
+          <mat-option value="Night">Night · 18:00–06:00</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="status" (selectionChange)="refresh()">
+          @for (option of statuses; track option) {
+            <mat-option [value]="option">{{ statusOptionLabel(option) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search</mat-label>
+        <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+        <input
+          matInput
+          [ngModel]="search()"
+          (ngModelChange)="onSearchChanged($event)"
+          placeholder="Material, route, ID, equipment"
+          aria-label="Search movements">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Priority</mat-label>
+        <mat-select
+          [ngModel]="priorityFilter()"
+          (ngModelChange)="onPriorityFilterChanged($event)">
+          <mat-option value="all">All priorities</mat-option>
+          <mat-option value="urgent">Urgent only</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <div class="filter-actions">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="setCurrentShift()"
+          [disabled]="!selectedSite()">
+          <mat-icon aria-hidden="true">today</mat-icon>
+          Current shift
+        </button>
+        <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading()">
+          <mat-icon aria-hidden="true">refresh</mat-icon>
+          Refresh
+        </button>
+        @if (isFiltered()) {
+          <button mat-button type="button" (click)="clearFilters()">Clear filters</button>
+        }
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  @if (error()) {
+    <div class="error-banner" role="alert">
+      <mat-icon aria-hidden="true">warning</mat-icon>
+      <span>{{ error() }}</span>
+      <button mat-button type="button" (click)="retry()">Retry</button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="state-panel" role="status" aria-live="polite">
+      <mat-spinner diameter="34"></mat-spinner>
+      <span>Loading dispatch data…</span>
+    </div>
+  } @else if (movements().length === 0 && !error()) {
+    <div class="state-panel">
+      <mat-icon aria-hidden="true">inbox</mat-icon>
+      <h2>No movements in this shift</h2>
+      <p>There is no work for this site, date, shift, and status filter.</p>
+      <div class="state-actions">
+        <button mat-flat-button type="button" (click)="openCreate()" [disabled]="!selectedSite()">
+          <mat-icon aria-hidden="true">add</mat-icon>
+          New movement
+        </button>
+        <button mat-stroked-button type="button" (click)="setCurrentShift()" [disabled]="!selectedSite()">
+          <mat-icon aria-hidden="true">today</mat-icon>
+          Current shift
+        </button>
+      </div>
+    </div>
+  } @else if (movements().length > 0 && visibleMovements().length === 0) {
+    <div class="state-panel">
+      <mat-icon aria-hidden="true">filter_alt_off</mat-icon>
+      <h2>No movements match your filters</h2>
+      <p>Try a different search or clear the filters.</p>
+      <button mat-stroked-button type="button" (click)="clearFilters()">Clear filters</button>
+    </div>
+  } @else if (visibleMovements().length > 0) {
+    <mat-card appearance="outlined" class="table-card desktop-board">
+      <div class="table-scroll">
+        <table mat-table [dataSource]="visibleMovements()" aria-label="Material movements">
+          <ng-container matColumnDef="priority">
+            <th mat-header-cell *matHeaderCellDef>Priority</th>
+            <td mat-cell *matCellDef="let movement">
+              <span class="priority" [class.urgent]="movement.priority === 'Urgent'">
+                <mat-icon class="chip-icon" aria-hidden="true">{{ priorityIcon(movement.priority) }}</mat-icon>
+                {{ movement.priority }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="material">
+            <th mat-header-cell *matHeaderCellDef>Material</th>
+            <td mat-cell *matCellDef="let movement">
+              <strong class="truncate" [title]="movement.materialType">{{ movement.materialType }}</strong>
+              <small>{{ movement.id }}</small>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="route">
+            <th mat-header-cell *matHeaderCellDef>Route</th>
+            <td mat-cell *matCellDef="let movement">
+              <span class="route">
+                {{ movement.sourceLocation }}
+                <span class="route-arrow" aria-hidden="true">→</span><span class="sr-only"> to </span>
+                {{ movement.destinationLocation }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="tonnes">
+            <th mat-header-cell *matHeaderCellDef>Tonnes</th>
+            <td mat-cell *matCellDef="let movement">
+              {{ movement.estimatedTonnes | number:'1.0-2' }} t
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let movement">
+              <span class="status" [attr.data-status]="movement.status">
+                <mat-icon class="chip-icon" aria-hidden="true">{{ statusIcon(movement.status) }}</mat-icon>
+                {{ statusLabel(movement.status) }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="equipment">
+            <th mat-header-cell *matHeaderCellDef>Equipment</th>
+            <td mat-cell *matCellDef="let movement">
+              <span [class.muted]="!movement.equipmentId">
+                {{ equipmentName(movement.equipmentId) }}
+              </span>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="requested">
+            <th mat-header-cell *matHeaderCellDef>Requested</th>
+            <td mat-cell *matCellDef="let movement">
+              <span class="time">{{ siteTime(movement.requestedAtUtc) }}</span>
+              <small class="site-time">site time</small>
+            </td>
+          </ng-container>
+
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="actions-header">Actions</th>
+            <td mat-cell *matCellDef="let movement" class="actions-cell">
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="openManage(movement)"
+                [attr.aria-label]="(isTerminal(movement.status) ? 'View' : 'Manage') + ' movement ' + movement.id">
+                <mat-icon aria-hidden="true">{{ isTerminal(movement.status) ? 'visibility' : 'edit' }}</mat-icon>
+                {{ isTerminal(movement.status) ? 'View' : 'Manage' }}
+              </button>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: displayedColumns"
+            [class.urgent-row]="row.priority === 'Urgent'"></tr>
+        </table>
+      </div>
+    </mat-card>
+
+    <div class="mobile-board" aria-label="Material movements">
+      @for (movement of visibleMovements(); track movement.id) {
+        <mat-card
+          appearance="outlined"
+          class="movement-card"
+          [class.urgent-card]="movement.priority === 'Urgent'">
+          <mat-card-content>
+            <div class="card-top">
+              <span class="priority" [class.urgent]="movement.priority === 'Urgent'">
+                <mat-icon class="chip-icon" aria-hidden="true">{{ priorityIcon(movement.priority) }}</mat-icon>
+                {{ movement.priority }}
+              </span>
+              <span class="status" [attr.data-status]="movement.status">
+                <mat-icon class="chip-icon" aria-hidden="true">{{ statusIcon(movement.status) }}</mat-icon>
+                {{ statusLabel(movement.status) }}
+              </span>
+            </div>
+
+            <h3>{{ movement.materialType }}</h3>
+            <p class="card-id">{{ movement.id }}</p>
+            <p class="card-route">
+              {{ movement.sourceLocation }}
+              <span class="route-arrow" aria-hidden="true">→</span><span class="sr-only"> to </span>
+              {{ movement.destinationLocation }}
+            </p>
+
+            <dl class="card-details">
+              <div>
+                <dt>Tonnes</dt>
+                <dd>{{ movement.estimatedTonnes | number:'1.0-2' }} t</dd>
+              </div>
+              <div>
+                <dt>Equipment</dt>
+                <dd [class.muted]="!movement.equipmentId">{{ equipmentName(movement.equipmentId) }}</dd>
+              </div>
+              <div>
+                <dt>Requested</dt>
+                <dd>{{ siteTime(movement.requestedAtUtc) }} <span class="site-time">site time</span></dd>
+              </div>
+            </dl>
+          </mat-card-content>
+
+          <mat-card-actions align="end">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="openManage(movement)"
+              [attr.aria-label]="(isTerminal(movement.status) ? 'View' : 'Manage') + ' movement ' + movement.id">
+              <mat-icon aria-hidden="true">{{ isTerminal(movement.status) ? 'visibility' : 'edit' }}</mat-icon>
+              {{ isTerminal(movement.status) ? 'View' : 'Manage' }}
+            </button>
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+
+    <p class="board-note">
+      Times are shown in {{ selectedSite()?.timeZoneId ?? 'site' }} time. Completed and cancelled
+      movements are final.
+    </p>
+  }
+</main>

@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/TestResults/
+ui/node_modules/
+ui/dist/
+.angular/
+.idea/
+.vs/
+.vscode/
+*.user
+*.suo
+coverage/
+artifacts/
+src/Dispatch.Api/appsettings.Development.json

@@ -1,0 +1,142 @@
+<h2 mat-dialog-title>Manage movement</h2>
+
+<mat-dialog-content>
+  <section class="movement-summary" aria-label="Movement summary">
+    <div class="summary-header">
+      <span class="status" [attr.data-status]="movement.status">
+        <mat-icon class="chip-icon" aria-hidden="true">{{ statusIcon(movement.status) }}</mat-icon>
+        {{ statusLabel(movement.status) }}
+      </span>
+      <span class="priority" [class.urgent]="movement.priority === 'Urgent'">
+        <mat-icon class="chip-icon" aria-hidden="true">{{ priorityIcon(movement.priority) }}</mat-icon>
+        {{ movement.priority }}
+      </span>
+    </div>
+
+    <h3>{{ movement.materialType }}</h3>
+    <p class="movement-id">{{ movement.id }}</p>
+
+    <dl class="summary-grid">
+      <div class="summary-route">
+        <dt>Route</dt>
+        <dd>
+          {{ movement.sourceLocation }}
+          <span aria-hidden="true">→</span><span class="sr-only"> to </span>
+          {{ movement.destinationLocation }}
+        </dd>
+      </div>
+      <div>
+        <dt>Tonnes</dt>
+        <dd>{{ movement.estimatedTonnes | number:'1.0-2' }} t</dd>
+      </div>
+      <div>
+        <dt>Equipment</dt>
+        <dd [class.muted]="!movement.equipmentId">{{ equipmentName(movement.equipmentId) }}</dd>
+      </div>
+      <div>
+        <dt>Requested</dt>
+        <dd>{{ siteTime(movement.requestedAtUtc) }} <span class="site-time">site time</span></dd>
+      </div>
+      <div>
+        <dt>Last updated</dt>
+        <dd>{{ siteTime(movement.lastUpdatedAtUtc) }} <span class="site-time">site time</span></dd>
+      </div>
+    </dl>
+  </section>
+
+  @if (terminal) {
+    <div class="terminal-banner" role="status">
+      <mat-icon aria-hidden="true">{{ statusIcon(movement.status) }}</mat-icon>
+      <div>
+        <strong>This movement is {{ statusLabel(movement.status).toLowerCase() }}.</strong>
+        <p>Completed and cancelled movements are final and cannot be changed.</p>
+      </div>
+    </div>
+  } @else if (conflict()) {
+    <div class="conflict-panel" role="alert">
+      <mat-icon aria-hidden="true">sync_problem</mat-icon>
+      <div>
+        <strong>This movement changed while you were editing.</strong>
+        <p>Your update was not applied. Reload the board and review the latest values.</p>
+        @if (conflictMovement(); as current) {
+          <p class="conflict-current">
+            Latest: {{ statusLabel(current.status) }} · {{ equipmentName(current.equipmentId) }} ·
+            updated {{ siteTime(current.lastUpdatedAtUtc) }} site time
+          </p>
+        }
+      </div>
+    </div>
+  } @else {
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>New status</mat-label>
+        <mat-select formControlName="status">
+          @for (option of statusOptions; track option) {
+            <mat-option [value]="option">
+              {{ statusLabel(option) }}{{ option === movement.status ? ' (current)' : '' }}
+            </mat-option>
+          }
+        </mat-select>
+        <mat-hint>Only forward transitions are allowed. Completed and cancelled are final.</mat-hint>
+        @if (form.controls.status.hasError('server')) {
+          <mat-error>{{ form.controls.status.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Equipment</mat-label>
+        <mat-select formControlName="equipmentId">
+          @if (!movement.equipmentId) {
+            <mat-option [value]="null">No equipment (unassigned)</mat-option>
+          }
+          @for (item of equipment; track item.id) {
+            <mat-option [value]="item.id" [disabled]="equipmentOptionDisabled(item)">
+              {{ equipmentLabel(item) }}
+            </mat-option>
+          }
+        </mat-select>
+        <mat-hint>{{ equipmentHint() }}</mat-hint>
+        @if (form.controls.equipmentId.hasError('required')) {
+          <mat-error>Equipment is required for this status.</mat-error>
+        } @else if (form.controls.equipmentId.hasError('server')) {
+          <mat-error>{{ form.controls.equipmentId.getError('server') }}</mat-error>
+        }
+      </mat-form-field>
+
+      @if (serverMessages().length > 0) {
+        <div class="form-error-summary" role="alert">
+          <mat-icon aria-hidden="true">error_outline</mat-icon>
+          <div>
+            <strong>Review the update</strong>
+            <ul>
+              @for (message of serverMessages(); track message) {
+                <li>{{ message }}</li>
+              }
+            </ul>
+          </div>
+        </div>
+      }
+    </form>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  @if (conflict()) {
+    <button mat-button type="button" (click)="cancel()">Close</button>
+    <button mat-flat-button type="button" (click)="reload()">Reload board</button>
+  } @else if (terminal) {
+    <button mat-flat-button type="button" (click)="cancel()">Close</button>
+  } @else {
+    <button mat-button type="button" (click)="cancel()" [disabled]="saving()">Cancel</button>
+    <button
+      mat-flat-button
+      type="button"
+      (click)="submit()"
+      [disabled]="saving() || form.invalid || !hasChanges()">
+      @if (saving()) {
+        <mat-spinner diameter="18" aria-hidden="true"></mat-spinner>
+      }
+      {{ saving() ? 'Updating…' : 'Update movement' }}
+    </button>
+  }
+</mat-dialog-actions>
